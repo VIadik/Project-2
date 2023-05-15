@@ -22,12 +22,16 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (CallbackQuery, InlineKeyboardButton,
                            InlineKeyboardMarkup, Message, PhotoSize)
 from aiogram.client.telegram import TelegramAPIServer
+from config import Config, load_config
 
 dp = Dispatcher()
-config: Config
-bot: Bot
-
-from config import Config, load_config
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(filename)s:%(lineno)d #%(levelname)-8s '
+           '[%(asctime)s] - %(name)s - %(message)s')
+config: Config = load_config()
+session = AiohttpSession(api=TelegramAPIServer.from_base('http://127.0.0.1:8081/'))
+bot = Bot(token=config.tg_bot.token, session=session)
 
 user_dict: dict[int, dict[str, str | int | bool | float]] = {}
 
@@ -66,7 +70,7 @@ async def process_cancel_command_state(message: Message, state):
 
 @dp.message(Command("qr"))
 async def generate_qr(message: types.Message, state: FSMContext):
-    await message.answer("Выберейте тип данных, который Вы хотите закодировать.", reply_markup=ikb_wifi)
+    await message.answer("Выберейте тип данных, который Вы хотите закодировать.", reply_markup=qr_ikb)
     await state.set_state(FSMFillForm.make_qr)
 
 
@@ -324,7 +328,7 @@ async def photo_handler(message: types.Message):
         print(file_ids)
         files = [await bot.get_file(id) for id in file_ids]
         print(file_ids)
-        subprocess.run("python3 pdf.py", shell=True)
+        subprocess.run(f"python3 sevices/pdf.py {config.tg_bot.token}", shell=True)
         file = FSInputFile("data/doc.pdf", filename="result.pdf")
         await bot.send_document(message.from_user.id, file)
         subprocess.run(f"python3 clear_directory.py telegram-bot-api/bin/{config.tg_bot.token}/photos", shell=True)
@@ -336,7 +340,7 @@ async def photo_handler(message: types.Message):
 async def document_hander(message: types.Message):
     file_id = message.document.file_id
     file = await bot.get_file(file_id)
-    subprocess.run("python3 zip.py", shell=True)
+    subprocess.run(f"python3 services/zip.py {config.tg_bot.token}", shell=True)
     file = FSInputFile("data/archive.zip", filename="result.zip")
     await bot.send_document(message.from_user.id, file)
 
@@ -357,13 +361,6 @@ async def echo_message(msg: types.Message):
 
 
 async def main():
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(filename)s:%(lineno)d #%(levelname)-8s '
-               '[%(asctime)s] - %(name)s - %(message)s')
-    config = load_config()
-    session = AiohttpSession(api=TelegramAPIServer.from_base('http://127.0.0.1:8081/'))
-    bot = Bot(token=config.tg_bot.token, session=session)
     await dp.start_polling(bot)
 
 
