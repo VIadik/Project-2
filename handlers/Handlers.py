@@ -13,6 +13,8 @@ from aiogram.types import CallbackQuery, Message, FSInputFile
 from keyboards.wifi_ikb import ikb_wifi
 from segno import helpers
 
+import logging
+
 import FSM.FSMFillForm
 from keyboards.qr_ikb import qr_ikb
 from database.database import user_dict_template, users_db
@@ -42,24 +44,6 @@ async def process_help_command(message: Message):
 async def process_cancel_command_state(message: Message, state):
     await message.answer(LEXICON["/cancel"])
     await state.clear()
-
-
-@router.message(Command("zip"))
-@router.message(lambda message: message.text == 'Сжать файл')
-async def doc_info(message: types.Message):
-    await message.answer("Отправьте файл/файлы одним сообщением")
-
-
-@router.message(Command("pdf"))
-@router.message(lambda message: message.text == "Собрать фотографии в pdf")
-async def photo_info(message: types.Message):
-    await message.answer("Отправьте фото/фотографии одним сообщением")
-
-
-@router.message(Command("unzip"))
-@router.message(lambda message: message.text == 'Разархивировать файл')
-async def doc_info(message: types.Message):
-    await message.answer("Отправьте zip архив")
 
 
 @router.message(Command("qr"))
@@ -232,62 +216,92 @@ async def qr_code_from_text(message: Message, state: FSMContext):
     await send_qr_code(message)
     await state.clear()
 
-# #-------------------------------------------------------------
-#
-# class Form(StatesGroup):
-#     next_photo = State()
-#     photo_0 = State()
-#     photo_couter = State()
-#
-# @dp.message(lambda message: message.content_type == 'photo')
-# async def photo_handler(message: types.Message, state: FSMContext):
-#     # we are here if the first message.content_type == 'photo'
-#
-#     # save the largest photo (message.photo[-1]) in FSM, and start photo_counter
-#     await state.update_data(photo_0=message.photo[-1], photo_counter=0)
-#
-#     await state.set_state('next_photo')
-#
-#
-# @dp.message(lambda message: message.content_type == 'photo', state="next_photo")
-# async def next_photo_handler(message: types.Message, state: FSMContext):
-#     # we are here if the second and next messages are photos
-#
-#     async with state.get_data() as data:
-#         data['photo_counter'] += 1
-#         photo_counter = data['photo_counter']
-#         data[f'photo_{photo_counter}'] = message.photo[-1]
-#     await state.set_state('next_photo')
-#
-#
-# @dp.message(state='next_photo')
-# async def not_foto_handler(message: types.Message, state: FSMContext):
-#     # we are here if the second and next messages are not photos
-#
-#     async with state.get_data() as data:
-#         # here you can do something with data dictionary with all photos
-#         print(data)
-#
-#     await state.finish()
-# -------------------------------------------------------------
+
+#-------------------------------------------------------------
+
+class Form(StatesGroup):
+    get_files_for_zip = State()
+    unzip = State()
+    get_photo_for_pdf = State()
+    photo_couter = State()
 
 
-# @router.message(lambda message: message.content_type == 'photo')
-# async def photo_handler(message: types.Message):
-#     file_ids = [file.file_id for file in message.photo]
-#
-#     files = [await bot.get_file(id) for id in file_ids]
-#     print(file_ids)
-#     subprocess.run(f"python3 sevices/pdf.py {config.tg_bot.token}", shell=True)
-#     file = FSInputFile("data/doc.pdf", filename="result.pdf")
-#     await message.answer_document(file)
-#     subprocess.run(f"python3 clear_directory.py telegram-bot-api/bin/{config.tg_bot.token}/photos", shell=True)
-#
-#
-# @router.message(lambda message: message.content_type == 'document')
-# async def document_hander(message: types.Message):
-#     file_id = message.document.file_id
-#     file = await bot.get_file(file_id)
-#     subprocess.run(f"python3 services/zip.py {config.tg_bot.token}", shell=True)
-#     file = FSInputFile("../data/archive.zip", filename="result.zip")
-#     await message.answer_document(file)
+@router.message(Command("pdf"))
+@router.message(lambda message: message.text == "Собрать фотографии в pdf")
+async def photo_info(message: types.Message, state: FSMContext):
+    await message.answer("Отправьте фото/фотографии одним сообщением")
+    await state.update_data(photo_counter=0)
+    await state.set_state(Form.get_photo_for_pdf)
+
+
+@router.message(lambda message: message.content_type == 'photo', StateFilter(Form.get_photo_for_pdf))
+async def photo_handler(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    cnt = data['photo_counter']
+    data['photo_counter'] += 1
+    data[f'photo_{cnt}'] = message.photo[-1]
+    await state.update_data(data)
+
+
+@router.message(Command(commands='stop'), StateFilter(Form.get_photo_for_pdf))
+async def not_photo_handler(message: types.Message, state: FSMContext):
+    print("сейчас будет собирать архив")
+    data = await state.get_data()
+    print(data)
+    await state.clear()
+
+
+@router.message(StateFilter(Form.get_photo_for_pdf))
+async def not_photo_handler(message: types.Message, state: FSMContext):
+    await message.answer("Сообщение не является фотографией, пришлите новую, либо вызовете команду /stop")
+
+#----------- unzip
+
+@router.message(Command("unzip"))
+@router.message(lambda message: message.text == 'Разархивировать файл')
+async def doc_info(message: types.Message, state: FSMContext):
+    await message.answer("Отправьте zip архив")
+    await state.set_state(Form.unzip)
+
+
+@router.message(StateFilter(Form.unzip), lambda message: message.content_type == 'document')
+async def doc_info(message: types.Message, state: FSMContext):
+    print("сейча будет разархивировать файлы")
+    await state.clear()
+
+
+@router.message(StateFilter(Form.unzip))
+async def doc_info(message: types.Message, state: FSMContext):
+    await message.answer(
+        "Файл не является архивом, пришлите другой файл, либо вызовете команду /cancel, чтобы выйти в главное меню.")
+
+#--------------zip-------
+
+@router.message(Command("zip"))
+@router.message(lambda message: message.text == 'Сжать файл')
+async def photo_info(message: types.Message, state: FSMContext):
+    await message.answer("Отправьте файл/файлы одним сообщением")
+    await state.update_data(files_counter=0)
+    await state.set_state(Form.get_files_for_zip)
+
+
+@router.message(lambda message: message.content_type == 'document', StateFilter(Form.get_files_for_zip))
+async def photo_handler(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    cnt = data['files_counter']
+    data['files_counter'] += 1
+    data[f'file_{cnt}'] = message.document.file_id
+    await state.update_data(data)
+
+
+@router.message(Command(commands='stop'), StateFilter(Form.get_files_for_zip))
+async def not_photo_handler(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    print(data)
+    await state.clear()
+
+
+@router.message(StateFilter(Form.get_files_for_zip))
+async def not_photo_handler(message: types.Message, state: FSMContext):
+    await message.answer("Сообщение не является файлом, пришлите новый, либо вызовете команду /stop")
+
