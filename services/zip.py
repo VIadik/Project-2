@@ -1,18 +1,20 @@
 import sys
 import zipfile
 import os
-import config
+
 
 # https://realpython.com/python-zipfile/
 
-token = sys.argv[1]
+def main(user_id: int):
+    files = os.listdir(f"users_files/{user_id}/documents")
 
-files = sorted(os.listdir(f"telegram-bot-api/bin/{token}/documents/"), key=lambda x: int(x[5:-4]))
+    with zipfile.ZipFile(f"{user_id}archive.zip", mode="w") as archive:
+        for file in files:
+            archive.write(f"users_files/{user_id}/documents/{file}")
 
-with zipfile.ZipFile("archive.zip", mode="w") as archive:
-    archive.write(f"telegram-bot-api/bin/{token}/documents/{files[-1]}", compresslevel=9)
+    old_file = f"{user_id}archive.zip"
+    destination_file = f'users_files/{user_id}/archive.zip'
 
-old_file = 'archive.zip'
-destination_file = 'data/archive.zip'
+    print(os.listdir(f"users_files/{user_id}"))
 
-os.rename(old_file, destination_file)
+    os.rename(old_file, destination_file)
