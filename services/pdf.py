@@ -1,16 +1,14 @@
-import sys
-
 from PIL import Image
-
-import config
 import os
 
-token = sys.argv[1]
 
-files = sorted(os.listdir(f"telegram-bot-api/bin/{token}/photos/"), key=lambda x: int(x[5:-4]))
-images = [Image.open(f"telegram-bot-api/bin/{token}/photos/{file}") for file in
-          os.listdir(f"telegram-bot-api/bin/{token}/photos/")]
-
-pdf_path = "data/doc.pdf"
-
-images[0].save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=images[1:])
+def main(user_id: int):
+    files = os.listdir(f"users_files/{user_id}/photos")
+    os.chdir(f"users_files/{user_id}/photos")
+    sorted(filter(os.path.isfile, os.listdir('.')), key=os.path.getmtime)
+    if 'Icon\r' in files:
+        files.remove('Icon\r')
+    images = [Image.open(f"{file}") for file in files]
+    pdf_path = f"../result.pdf"
+    images[0].save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=images[1:])
+    os.chdir("../../../")
