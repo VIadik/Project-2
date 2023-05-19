@@ -251,8 +251,8 @@ async def photo_handler(message: types.Message, state: FSMContext, bot: Bot):
     config: Config = load_config()
     TOKEN = config.tg_bot.token
     file_path = file.file_path
-    old_file = f"telegram-bot-api/bin/{TOKEN}/{file_path}"
-    destination_file = f'users_files/{message.from_user.id}/{file_path}'
+    old_file = f"{file_path}"
+    destination_file = f'users_files/{message.from_user.id}/{file_path[119:]}'
     os.rename(old_file, destination_file)
     #
     # file_id = message.photo[-1].file_id
@@ -294,8 +294,8 @@ async def doc_info(message: types.Message, state: FSMContext, bot: Bot):
     config: Config = load_config()
     TOKEN = config.tg_bot.token
     file_path = file.file_path
-    old_file = f"telegram-bot-api/bin/{TOKEN}/{file_path}"
-    destination_file = f'users_files/{message.from_user.id}/{file_path}'
+    old_file = f"{file_path}"
+    destination_file = f'users_files/{message.from_user.id}/{file_path[119:]}'
     os.rename(old_file, destination_file)
     # await bot.download_file(file_path, f"users_files/{message.from_user.id}/{file_path}")
     services.unzip.main(message.from_user.id)
@@ -337,8 +337,8 @@ async def photo_handler(message: types.Message, state: FSMContext, bot: Bot):
     config: Config = load_config()
     TOKEN = config.tg_bot.token
     file_path = file.file_path
-    old_file = f"telegram-bot-api/bin/{TOKEN}/{file_path}"
-    destination_file = f'users_files/{message.from_user.id}/{file_path}'
+    old_file = f"{file_path}"
+    destination_file = f'users_files/{message.from_user.id}/{file_path[119:]}'
     os.rename(old_file, destination_file)
     # file_id = message.document.file_id
     # file = await bot.get_file(file_id)
