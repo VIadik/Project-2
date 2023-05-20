@@ -3,13 +3,11 @@ import subprocess
 from copy import deepcopy
 import segno
 import validators
-from aiogram.types import ContentType
 from aiogram import F, Bot
 
 from aiogram import Router, types
 from aiogram.filters import Command, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import CallbackQuery, Message, FSInputFile
 
 import services.zip
@@ -17,8 +15,6 @@ import services.unzip
 import services.pdf
 from keyboards.wifi_ikb import ikb_wifi
 from segno import helpers
-
-import logging
 
 import FSM.FSMFillForm
 from keyboards.qr_ikb import qr_ikb
@@ -53,7 +49,7 @@ async def process_cancel_command_state(message: Message, state):
 
 @router.message(Command("qr"))
 async def generate_qr(message: types.Message, state: FSMContext):
-    await message.answer("Выберейте тип данных, который Вы хотите закодировать.", reply_markup=qr_ikb)
+    await message.answer(LEXICON['/qr'], reply_markup=qr_ikb)
     await state.set_state(FSMFillForm.make_qr)
 
 
@@ -100,7 +96,6 @@ async def send_qr_code(message: Message, mode=None):
     qrcode = segno.make(message.text, micro=False, mode=mode)
     qrcode.save(f'data/qr_code{message.from_user.id}.png')
     file = FSInputFile(f"data/qr_code{message.from_user.id}.png", filename="qr_code.png")
-
     await message.answer_document(file)
 
 
@@ -195,7 +190,7 @@ async def qr_code_from_email(message: Message, state: FSMContext):
             await send_qr_code(message)
             await state.clear()
     else:
-        await message.answer("Адрес электронной почты некорректен. Попробуйте отправть другой.")
+        await message.answer(LEXICON['incorrect_email'])
 
 
 @router.message(StateFilter(FSMFillForm.link))
@@ -217,7 +212,7 @@ async def qr_code_from_link(message: Message, state: FSMContext):
             await send_qr_code(message)
         await state.clear()
     else:
-        await message.answer("Ссылка на ресурс некорректна. Отправьте другую.")
+        await message.answer(LEXICON['incorrect_link'])
 
 
 @router.message(StateFilter(FSMFillForm.text))
@@ -251,17 +246,10 @@ async def photo_info(message: types.Message, state: FSMContext):
 async def photo_handler(message: types.Message, state: FSMContext, bot: Bot):
     file_id = message.photo[-1].file_id
     file = await bot.get_file(file_id)
-    config: Config = load_config()
-    TOKEN = config.tg_bot.token
     file_path = file.file_path
     old_file = f"{file_path}"
     destination_file = f'users_files/{message.from_user.id}/{file_path[119:]}'
     os.rename(old_file, destination_file)
-    #
-    # file_id = message.photo[-1].file_id
-    # file = await bot.get_file(file_id)
-    # file_path = file.file_path
-    # await bot.download_file(file_path, f"users_files/{message.from_user.id}/{file_path}")
 
 
 @router.message(Command(commands='stop'), StateFilter(Form.get_photo_for_pdf))
@@ -283,7 +271,7 @@ async def not_photo_handler(message: types.Message, state: FSMContext):
 @router.message(Command("unzip"))
 @router.message(lambda message: message.text == 'Разархивировать файл')
 async def doc_info(message: types.Message, state: FSMContext):
-    await message.answer("Отправьте zip архив")
+    await message.answer(LEXICON['/unzip'])
     subprocess.run(f"mkdir users_files/{message.from_user.id}", shell=True)
     subprocess.run(f"mkdir users_files/{message.from_user.id}/documents", shell=True)
     subprocess.run(f"mkdir users_files/{message.from_user.id}/unzip_files", shell=True)
@@ -294,21 +282,18 @@ async def doc_info(message: types.Message, state: FSMContext):
 async def doc_info(message: types.Message, state: FSMContext, bot: Bot):
     file_id = message.document.file_id
     file = await bot.get_file(file_id)
-    config: Config = load_config()
-    TOKEN = config.tg_bot.token
     file_path = file.file_path
     old_file = f"{file_path}"
     destination_file = f'users_files/{message.from_user.id}/{file_path[119:]}'
     os.rename(old_file, destination_file)
-    # await bot.download_file(file_path, f"users_files/{message.from_user.id}/{file_path}")
     services.unzip.main(message.from_user.id)
-    files = os.listdir(f"users_files/{message.from_user.id}/unzip_files/users_files/{message.from_user.id}/documents/")
+    files = os.listdir(f"users_files/{message.from_user.id}/unzip_files")
     if 'Icon\r' in files:
         files.remove('Icon\r')
     print(files)
     for file in files:
         file = FSInputFile(
-            f"users_files/{message.from_user.id}/unzip_files/users_files/{message.from_user.id}/documents/{file}",
+            f"users_files/{message.from_user.id}/unzip_files/{file}",
             filename=f"{file}")
         await message.answer_document(file)
     subprocess.run(f"python3 services/clear_directory.py users_files/{message.from_user.id}/documents", shell=True)
@@ -318,8 +303,7 @@ async def doc_info(message: types.Message, state: FSMContext, bot: Bot):
 
 @router.message(StateFilter(Form.unzip))
 async def doc_info(message: types.Message, state: FSMContext):
-    await message.answer(
-        "Файл не является архивом, пришлите другой файл, либо вызовете команду /cancel, чтобы выйти в главное меню.")
+    await message.answer(LEXICON['incorrect_archive_file'])
 
 
 # --------------zip-------
@@ -327,7 +311,7 @@ async def doc_info(message: types.Message, state: FSMContext):
 @router.message(Command("zip"))
 @router.message(lambda message: message.text == 'Сжать файл')
 async def photo_info(message: types.Message, state: FSMContext):
-    await message.answer("Отправьте файл/файлы одним сообщением. Чтобы закончить ввод файлов, введите /stop.")
+    await message.answer(LEXICON['/zip'])
     subprocess.run(f"mkdir users_files/{message.from_user.id}", shell=True)
     subprocess.run(f"mkdir users_files/{message.from_user.id}/documents", shell=True)
     await state.set_state(Form.get_files_for_zip)
@@ -337,16 +321,10 @@ async def photo_info(message: types.Message, state: FSMContext):
 async def photo_handler(message: types.Message, state: FSMContext, bot: Bot):
     file_id = message.document.file_id
     file = await bot.get_file(file_id)
-    config: Config = load_config()
-    TOKEN = config.tg_bot.token
     file_path = file.file_path
     old_file = f"{file_path}"
     destination_file = f'users_files/{message.from_user.id}/{file_path[119:]}'
     os.rename(old_file, destination_file)
-    # file_id = message.document.file_id
-    # file = await bot.get_file(file_id)
-    # file_path = file.file_path
-    # await bot.download_file(file_path, f"users_files/{message.from_user.id}/{file_path}")
 
 
 @router.message(Command(commands='stop'), StateFilter(Form.get_files_for_zip))
