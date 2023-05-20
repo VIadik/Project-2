@@ -32,8 +32,10 @@ async def main():
 
     session = AiohttpSession(api=TelegramAPIServer.from_base('http://127.0.0.1:8081/'))
 
-    bot: Bot = Bot(token=config.tg_bot.token,
-                   parse_mode='HTML', session=session)
+    # bot: Bot = Bot(token=config.tg_bot.token,
+    #                parse_mode='HTML', session=session)
+
+    bot: Bot = Bot(token=config.tg_bot.token, session=session)
 
     storage: MemoryStorage = MemoryStorage()
     dp: Dispatcher = Dispatcher(storage=storage)
