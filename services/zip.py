@@ -10,7 +10,7 @@ def main(user_id: int):
 
     with zipfile.ZipFile(f"{user_id}archive.zip", mode="w") as archive:
         for file in files:
-            archive.write(f"users_files/{user_id}/documents/{file}")
+            archive.write(f"users_files/{user_id}/documents/{file}", file)
 
     old_file = f"{user_id}archive.zip"
     destination_file = f'users_files/{user_id}/archive.zip'
