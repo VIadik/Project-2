@@ -64,8 +64,8 @@ async def get_callback(callback: types.CallbackQuery, state: FSMContext):
     qrcode = helpers.make_wifi(ssid=users_db[callback.from_user.id]["wifi_ssid"],
                                password=users_db[callback.from_user.id]["wifi_password"],
                                security=users_db[callback.from_user.id]["wifi_security"])
-    qrcode.save('data/qr_code.png')
-    file = FSInputFile("../data/qr_code.png", filename="qr_code.png")
+    qrcode.save(f'data/qr_code{callback.message.from_user.id}.png')
+    file = FSInputFile(f"data/qr_code{callback.message.from_user.id}.png", filename="qr_code.png")
     await callback.message.answer_document(file)
     await state.clear()
 
@@ -98,8 +98,8 @@ async def get_callback(callback: types.CallbackQuery, state: FSMContext):
 
 async def send_qr_code(message: Message, mode=None):
     qrcode = segno.make(message.text, micro=False, mode=mode)
-    qrcode.save('data/qr_code.png')
-    file = FSInputFile("data/qr_code.png", filename="qr_code.png")
+    qrcode.save(f'data/qr_code{message.from_user.id}.png')
+    file = FSInputFile(f"data/qr_code{message.from_user.id}.png", filename="qr_code.png")
 
     await message.answer_document(file)
 
@@ -118,6 +118,7 @@ async def get_name(message: Message, state: FSMContext):
 @router.message(StateFilter(FSMFillForm.latitude))
 async def get_latitude(message: Message, state: FSMContext):
     latitude = message.text
+    print("latitude", latitude)
     try:
         is_correct = abs(float(latitude)) <= 90.0
     except:
@@ -133,21 +134,24 @@ async def get_latitude(message: Message, state: FSMContext):
 @router.message(StateFilter(FSMFillForm.longitude))
 async def get_longitude(message: Message, state: FSMContext):
     longitude = message.text
+    print("longitude", longitude)
     try:
         is_correct = abs(float(longitude)) <= 180.0
     except:
         is_correct = False
     if is_correct:
+        print("it is false")
         await state.update_data(longitude=float(message.text))
         users_db[message.from_user.id] = await state.get_data()
         latitude = users_db[message.from_user.id]["latitude"]
         longitude = users_db[message.from_user.id]["longitude"]
         qrcode = helpers.make_geo(latitude, longitude)
-        qrcode.save('data/qr_code.png')
-        file = FSInputFile("data/qr_code.png", filename="qr_code.png")
+        qrcode.save(f'data/qr_code{message.from_user.id}.png')
+        file = FSInputFile(f"data/qr_code{message.from_user.id}.png", filename="qr_code.png")
         await message.answer_document(file)
         await state.clear()
     else:
+        print("am here")
         await message.answer("Введенная долгота некорректна. -180.0 <= λ <= 180.0")
 
 
@@ -206,8 +210,8 @@ async def qr_code_from_link(message: Message, state: FSMContext):
                                          phone=users_db[message.from_user.id]["phone"],
                                          email=users_db[message.from_user.id]["email"],
                                          url=users_db[message.from_user.id]["url"])
-            qrcode.save('data/qr_code.png')
-            file = FSInputFile("data/qr_code.png", filename="qr_code.png")
+            qrcode.save(f'data/qr_code{message.from_user.id}.png')
+            file = FSInputFile(f"data/qr_code{message.from_user.id}.png", filename="qr_code.png")
             await message.answer_document(file)
         else:
             await send_qr_code(message)
@@ -232,7 +236,6 @@ class Form(StatesGroup):
     get_files_for_zip = State()
     unzip = State()
     get_photo_for_pdf = State()
-    photo_couter = State()
 
 
 @router.message(Command("pdf"))
